@@ -1,0 +1,23 @@
+player_32.png
+Source: https://opengameart.org/content/top-down-shooter-and-zombie
+Direct file: https://opengameart.org/sites/default/files/player_32.png
+License: CC0
+
+zumbi_0.png
+Source: https://opengameart.org/content/top-down-shooter-and-zombie
+Direct file: https://opengameart.org/sites/default/files/zumbi_0.png
+License: CC0
+
+top_down_lab_files.zip
+Source: https://opengameart.org/content/warped-top-down-tech-lab
+Direct file: https://opengameart.org/sites/default/files/top_down_lab_files.zip
+License: CC0
+
+tds_zombie.zip
+Source: https://opengameart.org/content/animated-top-down-zombie
+Direct file: https://opengameart.org/sites/default/files/tds_zombie.zip
+License: CC0
+
+Optional extra pack:
+Source: https://www.kenney.nl/assets/top-down-shooter
+License: Kenney free game assets license
