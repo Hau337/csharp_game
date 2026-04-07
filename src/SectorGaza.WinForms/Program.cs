@@ -1,5 +1,3 @@
-using SectorGaza.Model;
-
 namespace SectorGaza.WinForms;
 
 internal static class Program
@@ -9,8 +7,7 @@ internal static class Program
     {
         ApplicationConfiguration.Initialize();
 
-        var gameWorld = GameWorld.CreateDefault();
-        var controller = new GameController(gameWorld);
+        var controller = new GameController();
         var renderer = new GameRenderer();
 
         Application.Run(new GameForm(controller, renderer));

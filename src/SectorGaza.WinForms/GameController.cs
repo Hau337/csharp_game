@@ -6,12 +6,23 @@ public sealed class GameController
 {
     private readonly InputState inputState = new();
 
-    public GameController(GameWorld gameWorld)
+    public GameController()
     {
-        GameWorld = gameWorld;
+        GameWorld = GameWorld.CreateDefault();
     }
 
-    public GameWorld GameWorld { get; }
+    public GameWorld GameWorld { get; private set; }
+
+    public void StartNewGame()
+    {
+        GameWorld = GameWorld.CreateDefault();
+        inputState.Reset();
+    }
+
+    public void ResetInput()
+    {
+        inputState.Reset();
+    }
 
     public void Update()
     {
@@ -33,6 +44,9 @@ public sealed class GameController
                 break;
             case Keys.D:
                 inputState.MoveRight = true;
+                break;
+            case Keys.Space:
+                inputState.RequestAttack();
                 break;
         }
     }
