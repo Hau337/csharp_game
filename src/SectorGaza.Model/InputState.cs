@@ -11,6 +11,7 @@ public sealed class InputState
     public bool MoveRight { get; set; }
 
     private bool attackRequested;
+    private bool interactRequested;
 
     public (int Horizontal, int Vertical) GetMovementAxes()
     {
@@ -31,6 +32,18 @@ public sealed class InputState
         return requested;
     }
 
+    public void RequestInteract()
+    {
+        interactRequested = true;
+    }
+
+    public bool ConsumeInteractRequest()
+    {
+        var requested = interactRequested;
+        interactRequested = false;
+        return requested;
+    }
+
     public void Reset()
     {
         MoveUp = false;
@@ -38,5 +51,6 @@ public sealed class InputState
         MoveLeft = false;
         MoveRight = false;
         attackRequested = false;
+        interactRequested = false;
     }
 }

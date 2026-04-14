@@ -48,6 +48,9 @@ public sealed class GameController
             case Keys.Space:
                 inputState.RequestAttack();
                 break;
+            case Keys.E:
+                inputState.RequestInteract();
+                break;
         }
     }
 

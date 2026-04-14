@@ -2,19 +2,40 @@ namespace SectorGaza.Model;
 
 public sealed class Enemy
 {
-    public const int DefaultSpeed = 2;
-    public const int MaxHealth = 70;
-    public const int ContactDamage = 8;
+    public const int NormalSpeed = 3;
+    public const int NormalMaxHealth = 90;
+    public const int NormalContactDamage = 9;
+    public const int FastSpeed = 4;
+    public const int FastMaxHealth = 55;
+    public const int FastContactDamage = 7;
+    private const double AggroRange = 520;
 
-    public Enemy(IntRectangle bounds)
+    private readonly int speed;
+
+    public Enemy(IntRectangle bounds, EnemyKind kind = EnemyKind.Normal)
     {
         Bounds = bounds;
-        CurrentHealth = MaxHealth;
+        Kind = kind;
+        if (kind == EnemyKind.Fast)
+        {
+            speed = FastSpeed;
+            ContactDamage = FastContactDamage;
+            CurrentHealth = FastMaxHealth;
+            return;
+        }
+
+        speed = NormalSpeed;
+        ContactDamage = NormalContactDamage;
+        CurrentHealth = NormalMaxHealth;
     }
 
     public IntRectangle Bounds { get; private set; }
 
+    public EnemyKind Kind { get; }
+
     public int CurrentHealth { get; private set; }
+
+    public int ContactDamage { get; }
 
     public bool IsAlive => CurrentHealth > 0;
 
@@ -37,10 +58,15 @@ public sealed class Enemy
             return;
         }
 
+        if (length > AggroRange)
+        {
+            return;
+        }
+
         FacingAngleDegrees = NormalizeAngle(Math.Atan2(dyToPlayer, dxToPlayer) * (180.0 / Math.PI));
 
-        var moveX = (int)Math.Round((dxToPlayer / length) * DefaultSpeed);
-        var moveY = (int)Math.Round((dyToPlayer / length) * DefaultSpeed);
+        var moveX = (int)Math.Round((dxToPlayer / length) * speed);
+        var moveY = (int)Math.Round((dyToPlayer / length) * speed);
         TryMove(moveX, 0, room.Walls);
         TryMove(0, moveY, room.Walls);
     }

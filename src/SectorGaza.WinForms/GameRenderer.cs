@@ -35,8 +35,18 @@ public sealed class GameRenderer
         DrawFloor(graphics, room);
         DrawWallShadows(graphics, room.Walls);
         DrawWalls(graphics, room.Walls);
-        DrawEnemyShadow(graphics, gameWorld.Enemy);
-        DrawEnemy(graphics, gameWorld.Enemy);
+        DrawTransitions(graphics, gameWorld.Transitions);
+        DrawMedkits(graphics, gameWorld.Medkits);
+        foreach (var enemy in gameWorld.Enemies)
+        {
+            DrawEnemyShadow(graphics, enemy);
+        }
+
+        foreach (var enemy in gameWorld.Enemies)
+        {
+            DrawEnemy(graphics, enemy);
+        }
+
         DrawPlayerShadow(graphics, gameWorld.Player);
         DrawPlayer(graphics, gameWorld.Player);
         if (showHud)
@@ -201,6 +211,13 @@ public sealed class GameRenderer
         graphics.TranslateTransform(centerX, centerY);
         graphics.RotateTransform((float)enemy.FacingAngleDegrees);
         graphics.DrawImage(enemySprite, new Rectangle(-18, -18, 36, 36), 0, 0, enemySprite.Width, enemySprite.Height, GraphicsUnit.Pixel);
+
+        if (enemy.Kind == EnemyKind.Fast)
+        {
+            using var fastEnemyAura = new Pen(Color.FromArgb(170, 112, 208, 238), 2);
+            graphics.DrawEllipse(fastEnemyAura, -21, -21, 42, 42);
+        }
+
         graphics.Restore(state);
     }
 
@@ -246,11 +263,14 @@ public sealed class GameRenderer
 
     private static void DrawHud(Graphics graphics, GameWorld gameWorld)
     {
-        var panelBounds = new Rectangle(18, 460, 290, 158);
+        const int margin = 16;
+        const int panelWidth = 270;
+        const int panelHeight = 176;
+        var panelBounds = new Rectangle(margin, gameWorld.Room.Height - panelHeight - margin, panelWidth, panelHeight);
         using var panelBrush = new SolidBrush(Color.FromArgb(120, 6, 10, 14));
         using var panelBorder = new Pen(Color.FromArgb(120, 160, 190, 205), 1);
-        using var titleFont = new Font("Segoe UI", 10.5F, FontStyle.Bold, GraphicsUnit.Point);
-        using var textFont = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+        using var titleFont = new Font("Segoe UI", 9.5F, FontStyle.Bold, GraphicsUnit.Point);
+        using var textFont = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
         using var brush = new SolidBrush(HudColor);
         using var hpBackBrush = new SolidBrush(Color.FromArgb(115, 34, 45, 52));
         using var hpFillBrush = new SolidBrush(GetHpColor(gameWorld.Player.CurrentHealth, Player.MaxHealth));
@@ -258,9 +278,17 @@ public sealed class GameRenderer
         graphics.FillRectangle(panelBrush, panelBounds);
         graphics.DrawRectangle(panelBorder, panelBounds);
 
-        graphics.DrawString("\u0421\u0442\u0430\u0442\u0443\u0441", titleFont, brush, 30, 476);
+        var left = panelBounds.X + 12;
+        var y = panelBounds.Y + 8;
+        graphics.DrawString("\u0421\u0442\u0430\u0442\u0443\u0441", titleFont, brush, left, y);
+        y += 18;
 
-        var hpBarRect = new Rectangle(30, 502, 250, 16);
+        graphics.DrawString($"\u041A\u043E\u043C\u043D\u0430\u0442\u0430: {gameWorld.CurrentRoomNumber}/{gameWorld.TotalRooms}", textFont, brush, left, y);
+        y += 15;
+        graphics.DrawString(gameWorld.CurrentRoomName, textFont, brush, left, y);
+        y += 16;
+
+        var hpBarRect = new Rectangle(left, y, panelBounds.Width - 24, 12);
         graphics.FillRectangle(hpBackBrush, hpBarRect);
         var hpRatio = Math.Clamp(gameWorld.Player.CurrentHealth / (double)Player.MaxHealth, 0.0, 1.0);
         var hpFillWidth = (int)Math.Round(hpBarRect.Width * hpRatio);
@@ -269,11 +297,63 @@ public sealed class GameRenderer
             graphics.FillRectangle(hpFillBrush, new Rectangle(hpBarRect.X, hpBarRect.Y, hpFillWidth, hpBarRect.Height));
         }
         graphics.DrawRectangle(Pens.Black, hpBarRect);
-        graphics.DrawString($"HP: {gameWorld.Player.CurrentHealth}/{Player.MaxHealth}", textFont, brush, 30, 522);
+        y += 14;
+        graphics.DrawString($"HP: {gameWorld.Player.CurrentHealth}/{Player.MaxHealth}", textFont, brush, left, y);
+        y += 15;
+        graphics.DrawString($"\u0412\u0440\u0430\u0433\u043E\u0432: {gameWorld.AliveEnemies}/{gameWorld.TotalEnemies}", textFont, brush, left, y);
+        if (!gameWorld.IsCurrentRoomCleared && gameWorld.CurrentRoomNumber < gameWorld.TotalRooms)
+        {
+            y += 14;
+            graphics.DrawString("\u0414\u0432\u0435\u0440\u044C \u0434\u0430\u043B\u044C\u0448\u0435 \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0437\u0430\u0447\u0438\u0441\u0442\u043A\u0438", textFont, brush, left, y);
+        }
 
-        graphics.DrawString($"\u0412\u0440\u0430\u0433\u043E\u0432 \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C: {gameWorld.AliveEnemies}/{gameWorld.TotalEnemies}", textFont, brush, 30, 546);
-        graphics.DrawString("WASD - \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435", textFont, brush, 30, 570);
-        graphics.DrawString("\u041F\u0440\u043E\u0431\u0435\u043B - \u0430\u0442\u0430\u043A\u0430", textFont, brush, 30, 592);
+        y += 17;
+        graphics.DrawString("WASD - \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435", textFont, brush, left, y);
+        y += 14;
+        graphics.DrawString("\u041F\u0440\u043E\u0431\u0435\u043B - \u0430\u0442\u0430\u043A\u0430", textFont, brush, left, y);
+        y += 14;
+        graphics.DrawString("E - \u043F\u043E\u0434\u043E\u0431\u0440\u0430\u0442\u044C \u0430\u043F\u0442\u0435\u0447\u043A\u0443", textFont, brush, left, y);
+        y += 14;
+        graphics.DrawString("Esc - \u043F\u0430\u0443\u0437\u0430", textFont, brush, left, y);
+    }
+
+    private static void DrawTransitions(Graphics graphics, IReadOnlyList<RoomTransition> transitions)
+    {
+        using var fillBrush = new SolidBrush(Color.FromArgb(36, 102, 188, 214));
+        using var borderPen = new Pen(Color.FromArgb(155, 130, 220, 238), 2);
+
+        foreach (var transition in transitions)
+        {
+            var bounds = transition.TriggerBounds;
+            var drawRect = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            graphics.FillRectangle(fillBrush, drawRect);
+            graphics.DrawRectangle(borderPen, drawRect);
+        }
+    }
+
+    private static void DrawMedkits(Graphics graphics, IReadOnlyList<Medkit> medkits)
+    {
+        using var bodyBrush = new SolidBrush(Color.FromArgb(218, 176, 48, 48));
+        using var crossBrush = new SolidBrush(Color.FromArgb(226, 238, 246, 250));
+        using var borderPen = new Pen(Color.FromArgb(160, 20, 28, 34), 1);
+
+        foreach (var medkit in medkits)
+        {
+            if (medkit.IsCollected)
+            {
+                continue;
+            }
+
+            var bounds = medkit.Bounds;
+            var rect = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            graphics.FillRectangle(bodyBrush, rect);
+            graphics.DrawRectangle(borderPen, rect);
+
+            var centerX = rect.X + (rect.Width / 2);
+            var centerY = rect.Y + (rect.Height / 2);
+            graphics.FillRectangle(crossBrush, centerX - 2, rect.Y + 4, 4, rect.Height - 8);
+            graphics.FillRectangle(crossBrush, rect.X + 4, centerY - 2, rect.Width - 8, 4);
+        }
     }
 
     private static void DrawSoftSpot(Graphics graphics, Point center, int radius, Color color)

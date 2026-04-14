@@ -3,14 +3,14 @@ namespace SectorGaza.Model;
 public sealed class Player
 {
     public const int DefaultSpeed = 6;
-    public const int MaxHealth = 100;
-    public const int AttackDamage = 35;
-    public const int AttackRange = 66;
+    public const int MaxHealth = 115;
+    public const int AttackDamage = 32;
+    public const int AttackRange = 72;
 
     private const double RotationStepDegrees = 14;
-    private const int AttackCooldownTicks = 16;
+    private const int AttackCooldownTicks = 14;
     private const int AttackFlashTicks = 5;
-    private const int DamageCooldownTicks = 25;
+    private const int DamageCooldownTicks = 30;
 
     private int attackCooldown;
     private int attackFlash;
@@ -65,7 +65,7 @@ public sealed class Player
         TryMove(0, movement.dy, room.Walls);
     }
 
-    public bool TryAttack(Enemy enemy)
+    public bool TryAttack(IReadOnlyList<Enemy> enemies)
     {
         if (!IsAlive || attackCooldown > 0)
         {
@@ -75,12 +75,29 @@ public sealed class Player
         attackCooldown = AttackCooldownTicks;
         attackFlash = AttackFlashTicks;
 
-        if (!enemy.IsAlive || !IsEnemyInAttackRange(enemy))
+        Enemy? target = null;
+        var minDistance = double.MaxValue;
+
+        foreach (var enemy in enemies)
+        {
+            if (!enemy.IsAlive || !IsEnemyInAttackRange(enemy, out var distance))
+            {
+                continue;
+            }
+
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                target = enemy;
+            }
+        }
+
+        if (target is null)
         {
             return false;
         }
 
-        enemy.TakeDamage(AttackDamage);
+        target.TakeDamage(AttackDamage);
         return true;
     }
 
@@ -95,13 +112,29 @@ public sealed class Player
         CurrentHealth = Math.Max(0, CurrentHealth - damage);
     }
 
-    private bool IsEnemyInAttackRange(Enemy enemy)
+    public bool Heal(int amount)
+    {
+        if (!IsAlive || amount <= 0 || CurrentHealth >= MaxHealth)
+        {
+            return false;
+        }
+
+        CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
+        return true;
+    }
+
+    public void TeleportTo(IntRectangle bounds)
+    {
+        Bounds = bounds;
+    }
+
+    private bool IsEnemyInAttackRange(Enemy enemy, out double distance)
     {
         var selfCenter = GetCenter(Bounds);
         var enemyCenter = GetCenter(enemy.Bounds);
         var dx = enemyCenter.X - selfCenter.X;
         var dy = enemyCenter.Y - selfCenter.Y;
-        var distance = Math.Sqrt((dx * dx) + (dy * dy));
+        distance = Math.Sqrt((dx * dx) + (dy * dy));
         if (distance > AttackRange)
         {
             return false;
