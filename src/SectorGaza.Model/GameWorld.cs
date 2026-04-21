@@ -15,6 +15,10 @@ public sealed class GameWorld
     private readonly IReadOnlyList<LevelRoom> rooms;
     private int currentRoomIndex;
     private int transitionCooldown;
+    private int storyMessageTicks;
+    private string? activeStoryMessage;
+
+    private const int StoryMessageDurationTicks = 320;
 
     private GameWorld(IReadOnlyList<LevelRoom> rooms, Player player)
     {
@@ -35,7 +39,19 @@ public sealed class GameWorld
 
     public IReadOnlyList<RoomTransition> Transitions => CurrentLevelRoom.Transitions;
 
+    public IReadOnlyList<StoryNote> Notes => CurrentLevelRoom.Notes;
+
+    public KeyCard? KeyCard => CurrentLevelRoom.KeyCard;
+
+    public FinalDoor? FinalDoor => CurrentLevelRoom.FinalDoor;
+
     public bool IsGameOver => !Player.IsAlive;
+
+    public bool HasKeyCard { get; private set; }
+
+    public bool IsVictory { get; private set; }
+
+    public string? ActiveStoryMessage => storyMessageTicks > 0 ? activeStoryMessage : null;
 
     public int TotalEnemies
     {
@@ -45,6 +61,40 @@ public sealed class GameWorld
             foreach (var room in rooms)
             {
                 total += room.Enemies.Count;
+            }
+
+            return total;
+        }
+    }
+
+    public int TotalNotes
+    {
+        get
+        {
+            var total = 0;
+            foreach (var room in rooms)
+            {
+                total += room.Notes.Count;
+            }
+
+            return total;
+        }
+    }
+
+    public int CollectedNotesCount
+    {
+        get
+        {
+            var total = 0;
+            foreach (var room in rooms)
+            {
+                foreach (var note in room.Notes)
+                {
+                    if (note.IsCollected)
+                    {
+                        total++;
+                    }
+                }
             }
 
             return total;
@@ -113,7 +163,16 @@ public sealed class GameWorld
             transitionCooldown--;
         }
 
-        if (IsGameOver)
+        if (storyMessageTicks > 0)
+        {
+            storyMessageTicks--;
+            if (storyMessageTicks == 0)
+            {
+                activeStoryMessage = null;
+            }
+        }
+
+        if (IsGameOver || IsVictory)
         {
             return;
         }
@@ -138,18 +197,72 @@ public sealed class GameWorld
 
         if (inputState.ConsumeInteractRequest())
         {
-            foreach (var medkit in room.Medkits)
+            HandleInteraction(room);
+            if (IsVictory)
             {
-                var wasCollected = medkit.IsCollected;
-                medkit.TryCollect(Player);
-                if (!wasCollected && medkit.IsCollected)
-                {
-                    break;
-                }
+                return;
             }
         }
 
         TryUseTransitions(inputState);
+    }
+
+    private void HandleInteraction(LevelRoom room)
+    {
+        foreach (var note in room.Notes)
+        {
+            if (!note.TryCollect(Player))
+            {
+                continue;
+            }
+
+            ShowStoryMessage($"{note.Title}: {note.Text}");
+            return;
+        }
+
+        if (room.KeyCard is not null && room.KeyCard.TryCollect(Player))
+        {
+            HasKeyCard = true;
+            ShowStoryMessage("\u0412\u044B \u043D\u0430\u0448\u043B\u0438 \u043A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0443. \u0422\u0435\u043F\u0435\u0440\u044C \u043C\u043E\u0436\u043D\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0444\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u0448\u043B\u044E\u0437.");
+            return;
+        }
+
+        if (room.FinalDoor is not null && Player.Bounds.IntersectsWith(room.FinalDoor.Bounds))
+        {
+            if (!HasKeyCard)
+            {
+                ShowStoryMessage("\u0428\u043B\u044E\u0437 \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D. \u041D\u0443\u0436\u043D\u0430 \u043A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0430.");
+                return;
+            }
+
+            if (!IsCurrentRoomCleared)
+            {
+                ShowStoryMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u0447\u0438\u0441\u0442\u0438\u0442\u0435 \u043A\u043E\u043C\u043D\u0430\u0442\u0443, \u0438 \u043F\u043E\u0442\u043E\u043C \u0430\u043A\u0442\u0438\u0432\u0438\u0440\u0443\u0439\u0442\u0435 \u0448\u043B\u044E\u0437.");
+                return;
+            }
+
+            room.FinalDoor.Open();
+            IsVictory = true;
+            ShowStoryMessage("\u0428\u043B\u044E\u0437 \u0430\u043A\u0442\u0438\u0432\u0438\u0440\u043E\u0432\u0430\u043D. \u0412\u044B \u0432\u044B\u0431\u0440\u0430\u043B\u0438\u0441\u044C \u0438\u0437 \u0441\u0435\u043A\u0442\u043E\u0440\u0430.");
+            return;
+        }
+
+        foreach (var medkit in room.Medkits)
+        {
+            var wasCollected = medkit.IsCollected;
+            medkit.TryCollect(Player);
+            if (!wasCollected && medkit.IsCollected)
+            {
+                ShowStoryMessage("\u0410\u043F\u0442\u0435\u0447\u043A\u0430 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0430.");
+                return;
+            }
+        }
+    }
+
+    private void ShowStoryMessage(string text)
+    {
+        activeStoryMessage = text;
+        storyMessageTicks = StoryMessageDurationTicks;
     }
 
     private void TryUseTransitions(InputState inputState)
@@ -169,6 +282,7 @@ public sealed class GameWorld
             var movesForward = transition.TargetRoomIndex > currentRoomIndex;
             if (movesForward && !IsCurrentRoomCleared)
             {
+                ShowStoryMessage("\u0414\u0432\u0435\u0440\u044C \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0437\u0430\u0447\u0438\u0441\u0442\u043A\u0438 \u0432\u0440\u0430\u0433\u043E\u0432.");
                 continue;
             }
 
@@ -203,7 +317,8 @@ public sealed class GameWorld
             {
                 new(new IntRectangle(930, 280, 30, 30), EnemyKind.Normal),
                 new(new IntRectangle(1250, 300, 30, 30), EnemyKind.Normal),
-                new(new IntRectangle(1370, 760, 30, 30), EnemyKind.Normal)
+                new(new IntRectangle(1370, 760, 30, 30), EnemyKind.Normal),
+                new(new IntRectangle(560, 760, 30, 30), EnemyKind.Normal)
             },
             new List<Medkit>
             {
@@ -214,6 +329,13 @@ public sealed class GameWorld
             new List<RoomTransition>
             {
                 CreateRightTransition(1, spawnLeft)
+            },
+            notes: new List<StoryNote>
+            {
+                new(
+                    new IntRectangle(520, 820, 26, 22),
+                    "\u0417\u0430\u043F\u0438\u0441\u043A\u0430 01",
+                    "\u0418\u0445 \u0434\u0435\u0440\u0436\u0430\u043B\u0438 \u0432 \u0441\u0435\u043A\u0442\u043E\u0440\u0435 B. \u0415\u0441\u043B\u0438 \u0441\u0438\u0440\u0435\u043D\u0430 \u0441\u043D\u043E\u0432\u0430 \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0441\u044F, \u0432\u044B\u0445\u043E\u0434 \u043E\u0441\u0442\u0430\u043D\u0435\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u0440\u0435\u0437 \u0448\u043B\u044E\u0437.")
             });
 
         var labRoom = new LevelRoom(
@@ -238,7 +360,9 @@ public sealed class GameWorld
                 new(new IntRectangle(760, 600, 30, 30), EnemyKind.Normal),
                 new(new IntRectangle(1030, 500, 30, 30), EnemyKind.Normal),
                 new(new IntRectangle(1280, 240, 30, 30), EnemyKind.Normal),
-                new(new IntRectangle(1360, 820, 30, 30), EnemyKind.Normal)
+                new(new IntRectangle(1360, 820, 30, 30), EnemyKind.Normal),
+                new(new IntRectangle(500, 840, 30, 30), EnemyKind.Fast),
+                new(new IntRectangle(1460, 700, 30, 30), EnemyKind.Normal)
             },
             new List<Medkit>
             {
@@ -250,7 +374,15 @@ public sealed class GameWorld
             {
                 CreateLeftTransition(0, spawnRight),
                 CreateRightTransition(2, spawnLeft)
-            });
+            },
+            notes: new List<StoryNote>
+            {
+                new(
+                    new IntRectangle(1290, 860, 26, 22),
+                    "\u0417\u0430\u043F\u0438\u0441\u043A\u0430 02",
+                    "\u041A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0430 \u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u0430 \u0443 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439 \u043A\u043E\u043D\u0441\u043E\u043B\u0438. \u0411\u0435\u0437 \u043D\u0435\u0435 \u0444\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u0448\u043B\u044E\u0437 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0442\u044C.")
+            },
+            keyCard: new KeyCard(new IntRectangle(1370, 170, 26, 18)));
 
         var isolationRoom = new LevelRoom(
             "Изолятор",
@@ -280,7 +412,9 @@ public sealed class GameWorld
                 new(new IntRectangle(960, 160, 30, 30), EnemyKind.Fast),
                 new(new IntRectangle(1140, 680, 30, 30), EnemyKind.Fast),
                 new(new IntRectangle(1310, 740, 30, 30), EnemyKind.Normal),
-                new(new IntRectangle(1420, 840, 30, 30), EnemyKind.Fast)
+                new(new IntRectangle(1420, 840, 30, 30), EnemyKind.Fast),
+                new(new IntRectangle(610, 840, 30, 30), EnemyKind.Normal),
+                new(new IntRectangle(1490, 320, 30, 30), EnemyKind.Fast)
             },
             new List<Medkit>
             {
@@ -291,7 +425,8 @@ public sealed class GameWorld
             new List<RoomTransition>
             {
                 CreateLeftTransition(1, spawnRight)
-            });
+            },
+            finalDoor: new FinalDoor(new IntRectangle(RoomWidth - 84, (RoomHeight / 2) - 72, 28, 144)));
 
         return new List<LevelRoom>
         {

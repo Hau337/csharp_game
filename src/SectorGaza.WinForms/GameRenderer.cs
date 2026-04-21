@@ -11,6 +11,8 @@ public sealed class GameRenderer
     private static readonly Color WallFallbackColor = Color.FromArgb(81, 88, 112);
     private static readonly Color ShadowColor = Color.FromArgb(90, 0, 0, 0);
     private static readonly Color HudColor = Color.FromArgb(235, 239, 242);
+    private static readonly Color LabGridColor = Color.FromArgb(24, 164, 188, 202);
+    private static readonly Color LabLightColor = Color.FromArgb(72, 142, 220, 236);
     private static readonly Rectangle FloorTileSource = new(0, 160, 16, 16);
     private static readonly Rectangle WallTileSource = new(0, 0, 16, 16);
     private static readonly Rectangle AccentTileSource = new(80, 0, 16, 16);
@@ -33,10 +35,14 @@ public sealed class GameRenderer
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
         DrawFloor(graphics, room);
+        DrawLabDecor(graphics, room);
         DrawWallShadows(graphics, room.Walls);
         DrawWalls(graphics, room.Walls);
         DrawTransitions(graphics, gameWorld.Transitions);
         DrawMedkits(graphics, gameWorld.Medkits);
+        DrawNotes(graphics, gameWorld.Notes);
+        DrawKeyCard(graphics, gameWorld.KeyCard);
+        DrawFinalDoor(graphics, gameWorld.FinalDoor, gameWorld.HasKeyCard, gameWorld.IsCurrentRoomCleared);
         foreach (var enemy in gameWorld.Enemies)
         {
             DrawEnemyShadow(graphics, enemy);
@@ -52,6 +58,7 @@ public sealed class GameRenderer
         if (showHud)
         {
             DrawHud(graphics, gameWorld);
+            DrawStoryMessage(graphics, gameWorld.ActiveStoryMessage, room.Width);
         }
 
         graphics.Restore(state);
@@ -111,6 +118,31 @@ public sealed class GameRenderer
                 var destination = new Rectangle(x, y, TileSize, TileSize);
                 graphics.DrawImage(labTileset, destination, FloorTileSource, GraphicsUnit.Pixel);
             }
+        }
+    }
+
+    private static void DrawLabDecor(Graphics graphics, Room room)
+    {
+        using var gridPen = new Pen(LabGridColor, 1);
+        using var lightBrush = new SolidBrush(LabLightColor);
+        using var dimLightBrush = new SolidBrush(Color.FromArgb(45, 114, 176, 194));
+
+        for (var x = 0; x < room.Width; x += 96)
+        {
+            graphics.DrawLine(gridPen, x, 0, x, room.Height);
+        }
+
+        for (var y = 0; y < room.Height; y += 96)
+        {
+            graphics.DrawLine(gridPen, 0, y, room.Width, y);
+        }
+
+        var lampWidth = 68;
+        var lampHeight = 8;
+        for (var x = 140; x < room.Width - 140; x += 220)
+        {
+            graphics.FillRectangle(lightBrush, new Rectangle(x, 18, lampWidth, lampHeight));
+            graphics.FillRectangle(dimLightBrush, new Rectangle(x + 36, room.Height - 26, lampWidth - 14, lampHeight));
         }
     }
 
@@ -264,8 +296,8 @@ public sealed class GameRenderer
     private static void DrawHud(Graphics graphics, GameWorld gameWorld)
     {
         const int margin = 16;
-        const int panelWidth = 270;
-        const int panelHeight = 176;
+        const int panelWidth = 280;
+        const int panelHeight = 194;
         var panelBounds = new Rectangle(margin, gameWorld.Room.Height - panelHeight - margin, panelWidth, panelHeight);
         using var panelBrush = new SolidBrush(Color.FromArgb(120, 6, 10, 14));
         using var panelBorder = new Pen(Color.FromArgb(120, 160, 190, 205), 1);
@@ -301,26 +333,115 @@ public sealed class GameRenderer
         graphics.DrawString($"HP: {gameWorld.Player.CurrentHealth}/{Player.MaxHealth}", textFont, brush, left, y);
         y += 15;
         graphics.DrawString($"\u0412\u0440\u0430\u0433\u043E\u0432: {gameWorld.AliveEnemies}/{gameWorld.TotalEnemies}", textFont, brush, left, y);
+        y += 14;
+        graphics.DrawString($"\u0417\u0430\u043F\u0438\u0441\u043A\u0438: {gameWorld.CollectedNotesCount}/{gameWorld.TotalNotes}", textFont, brush, left, y);
+        y += 14;
+        graphics.DrawString($"\u041A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0430: {(gameWorld.HasKeyCard ? "\u0435\u0441\u0442\u044C" : "\u043D\u0435\u0442")}", textFont, brush, left, y);
+
         if (!gameWorld.IsCurrentRoomCleared && gameWorld.CurrentRoomNumber < gameWorld.TotalRooms)
         {
             y += 14;
-            graphics.DrawString("\u0414\u0432\u0435\u0440\u044C \u0434\u0430\u043B\u044C\u0448\u0435 \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0437\u0430\u0447\u0438\u0441\u0442\u043A\u0438", textFont, brush, left, y);
+            graphics.DrawString("\u0414\u0432\u0435\u0440\u044C \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0437\u0430\u0447\u0438\u0441\u0442\u043A\u0438 \u0432\u0440\u0430\u0433\u043E\u0432", textFont, brush, left, y);
         }
 
-        y += 17;
+        y += 15;
         graphics.DrawString("WASD - \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435", textFont, brush, left, y);
-        y += 14;
+        y += 13;
         graphics.DrawString("\u041F\u0440\u043E\u0431\u0435\u043B - \u0430\u0442\u0430\u043A\u0430", textFont, brush, left, y);
-        y += 14;
-        graphics.DrawString("E - \u043F\u043E\u0434\u043E\u0431\u0440\u0430\u0442\u044C \u0430\u043F\u0442\u0435\u0447\u043A\u0443", textFont, brush, left, y);
-        y += 14;
+        y += 13;
+        graphics.DrawString("E - \u0432\u0437\u0430\u0438\u043C\u043E\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435", textFont, brush, left, y);
+        y += 13;
         graphics.DrawString("Esc - \u043F\u0430\u0443\u0437\u0430", textFont, brush, left, y);
+    }
+
+    private static void DrawNotes(Graphics graphics, IReadOnlyList<StoryNote> notes)
+    {
+        using var noteBrush = new SolidBrush(Color.FromArgb(232, 214, 202, 170));
+        using var noteBorder = new Pen(Color.FromArgb(180, 74, 64, 48), 1);
+
+        foreach (var note in notes)
+        {
+            if (note.IsCollected)
+            {
+                continue;
+            }
+
+            var bounds = note.Bounds;
+            var rect = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            graphics.FillRectangle(noteBrush, rect);
+            graphics.DrawRectangle(noteBorder, rect);
+            graphics.DrawLine(noteBorder, rect.X + 4, rect.Y + 6, rect.Right - 4, rect.Y + 6);
+            graphics.DrawLine(noteBorder, rect.X + 4, rect.Y + 11, rect.Right - 4, rect.Y + 11);
+        }
+    }
+
+    private static void DrawKeyCard(Graphics graphics, KeyCard? keyCard)
+    {
+        if (keyCard is null || keyCard.IsCollected)
+        {
+            return;
+        }
+
+        var bounds = keyCard.Bounds;
+        var rect = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        using var bodyBrush = new SolidBrush(Color.FromArgb(225, 229, 190, 84));
+        using var borderPen = new Pen(Color.FromArgb(200, 70, 58, 36), 1);
+        using var chipBrush = new SolidBrush(Color.FromArgb(215, 44, 50, 60));
+
+        graphics.FillRectangle(bodyBrush, rect);
+        graphics.DrawRectangle(borderPen, rect);
+        graphics.FillRectangle(chipBrush, rect.X + 4, rect.Y + 4, 8, rect.Height - 8);
+    }
+
+    private static void DrawFinalDoor(Graphics graphics, FinalDoor? finalDoor, bool hasKeyCard, bool isRoomCleared)
+    {
+        if (finalDoor is null)
+        {
+            return;
+        }
+
+        var bounds = finalDoor.Bounds;
+        var rect = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        var color = finalDoor.IsOpened
+            ? Color.FromArgb(210, 92, 196, 130)
+            : hasKeyCard && isRoomCleared
+                ? Color.FromArgb(210, 188, 204, 92)
+                : Color.FromArgb(210, 167, 82, 82);
+
+        using var doorBrush = new SolidBrush(color);
+        using var borderPen = new Pen(Color.FromArgb(190, 24, 34, 42), 2);
+        graphics.FillRectangle(doorBrush, rect);
+        graphics.DrawRectangle(borderPen, rect);
+    }
+
+    private static void DrawStoryMessage(Graphics graphics, string? message, int roomWidth)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var width = Math.Min(760, roomWidth - 40);
+        var bounds = new Rectangle((roomWidth - width) / 2, 18, width, 44);
+        using var panelBrush = new SolidBrush(Color.FromArgb(160, 8, 12, 16));
+        using var panelBorder = new Pen(Color.FromArgb(170, 160, 189, 206), 1);
+        using var textFont = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        using var textBrush = new SolidBrush(Color.FromArgb(232, 237, 242));
+        using var format = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center
+        };
+
+        graphics.FillRectangle(panelBrush, bounds);
+        graphics.DrawRectangle(panelBorder, bounds);
+        graphics.DrawString(message, textFont, textBrush, bounds, format);
     }
 
     private static void DrawTransitions(Graphics graphics, IReadOnlyList<RoomTransition> transitions)
     {
-        using var fillBrush = new SolidBrush(Color.FromArgb(36, 102, 188, 214));
-        using var borderPen = new Pen(Color.FromArgb(155, 130, 220, 238), 2);
+        using var fillBrush = new SolidBrush(Color.FromArgb(30, 94, 184, 214));
+        using var borderPen = new Pen(Color.FromArgb(170, 130, 220, 238), 2);
 
         foreach (var transition in transitions)
         {

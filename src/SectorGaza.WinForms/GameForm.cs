@@ -10,7 +10,8 @@ public sealed class GameForm : Form
         Menu,
         Playing,
         Paused,
-        GameOver
+        GameOver,
+        Victory
     }
 
     private readonly GameController controller;
@@ -80,7 +81,13 @@ public sealed class GameForm : Form
             if (state == ScreenState.Playing)
             {
                 this.controller.Update();
-                if (this.controller.GameWorld.IsGameOver)
+                if (this.controller.GameWorld.IsVictory)
+                {
+                    state = ScreenState.Victory;
+                    controller.ResetInput();
+                    ConfigureScreenState();
+                }
+                else if (this.controller.GameWorld.IsGameOver)
                 {
                     state = ScreenState.GameOver;
                     controller.ResetInput();
@@ -212,14 +219,15 @@ public sealed class GameForm : Form
         titleLabel.Visible = state != ScreenState.Playing;
         startButton.Visible = state == ScreenState.Menu;
         continueButton.Visible = state == ScreenState.Paused;
-        restartButton.Visible = state == ScreenState.Paused || state == ScreenState.GameOver;
-        exitButton.Visible = state == ScreenState.Menu || state == ScreenState.Paused || state == ScreenState.GameOver;
+        restartButton.Visible = state == ScreenState.Paused || state == ScreenState.GameOver || state == ScreenState.Victory;
+        exitButton.Visible = state == ScreenState.Menu || state == ScreenState.Paused || state == ScreenState.GameOver || state == ScreenState.Victory;
 
         titleLabel.Text = state switch
         {
             ScreenState.Menu => "\u0421\u0435\u043A\u0442\u043E\u0440 \u0433\u0430\u0437\u0430",
             ScreenState.Paused => "\u041F\u0430\u0443\u0437\u0430",
             ScreenState.GameOver => "\u0412\u044B \u043F\u043E\u0433\u0438\u0431\u043B\u0438",
+            ScreenState.Victory => "\u0428\u043B\u044E\u0437 \u043E\u0442\u043A\u0440\u044B\u0442",
             _ => "\u0421\u0435\u043A\u0442\u043E\u0440 \u0433\u0430\u0437\u0430"
         };
 

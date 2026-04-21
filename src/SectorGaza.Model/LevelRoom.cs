@@ -7,13 +7,19 @@ public sealed class LevelRoom
         Room room,
         IReadOnlyList<Enemy> enemies,
         IReadOnlyList<Medkit> medkits,
-        IReadOnlyList<RoomTransition> transitions)
+        IReadOnlyList<RoomTransition> transitions,
+        IReadOnlyList<StoryNote>? notes = null,
+        KeyCard? keyCard = null,
+        FinalDoor? finalDoor = null)
     {
         Name = name;
         Room = room;
         Enemies = PlaceEnemies(room, enemies);
         Medkits = medkits;
         Transitions = transitions;
+        Notes = notes ?? Array.Empty<StoryNote>();
+        KeyCard = keyCard;
+        FinalDoor = finalDoor;
     }
 
     public string Name { get; }
@@ -25,6 +31,12 @@ public sealed class LevelRoom
     public IReadOnlyList<Medkit> Medkits { get; }
 
     public IReadOnlyList<RoomTransition> Transitions { get; }
+
+    public IReadOnlyList<StoryNote> Notes { get; }
+
+    public KeyCard? KeyCard { get; }
+
+    public FinalDoor? FinalDoor { get; }
 
     private static IReadOnlyList<Enemy> PlaceEnemies(Room room, IReadOnlyList<Enemy> enemies)
     {
