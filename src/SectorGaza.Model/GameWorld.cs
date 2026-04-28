@@ -53,6 +53,8 @@ public sealed class GameWorld
 
     public string? ActiveStoryMessage => storyMessageTicks > 0 ? activeStoryMessage : null;
 
+    public string? InteractionHint => GetInteractionHint(CurrentLevelRoom);
+
     public int TotalEnemies
     {
         get
@@ -257,6 +259,58 @@ public sealed class GameWorld
                 return;
             }
         }
+    }
+
+    private string? GetInteractionHint(LevelRoom room)
+    {
+        if (IsGameOver || IsVictory)
+        {
+            return null;
+        }
+
+        foreach (var note in room.Notes)
+        {
+            if (!note.IsCollected && note.Bounds.IntersectsWith(Player.Bounds))
+            {
+                return "E - прочитать записку";
+            }
+        }
+
+        if (room.KeyCard is not null
+            && !room.KeyCard.IsCollected
+            && room.KeyCard.Bounds.IntersectsWith(Player.Bounds))
+        {
+            return "E - подобрать ключ-карту";
+        }
+
+        if (room.FinalDoor is not null && room.FinalDoor.Bounds.IntersectsWith(Player.Bounds))
+        {
+            if (!HasKeyCard)
+            {
+                return "Нужна ключ-карта";
+            }
+
+            if (!IsCurrentRoomCleared)
+            {
+                return "Сначала зачистите комнату";
+            }
+
+            return "E - активировать шлюз";
+        }
+
+        foreach (var medkit in room.Medkits)
+        {
+            if (medkit.IsCollected || !medkit.Bounds.IntersectsWith(Player.Bounds))
+            {
+                continue;
+            }
+
+            return Player.CurrentHealth >= Player.MaxHealth
+                ? "Аптечка не нужна (HP полное)"
+                : "E - использовать аптечку";
+        }
+
+        return null;
     }
 
     private void ShowStoryMessage(string text)

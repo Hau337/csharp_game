@@ -297,13 +297,14 @@ public sealed class GameRenderer
     {
         const int margin = 16;
         const int panelWidth = 280;
-        const int panelHeight = 194;
+        const int panelHeight = 224;
         var panelBounds = new Rectangle(margin, gameWorld.Room.Height - panelHeight - margin, panelWidth, panelHeight);
         using var panelBrush = new SolidBrush(Color.FromArgb(120, 6, 10, 14));
         using var panelBorder = new Pen(Color.FromArgb(120, 160, 190, 205), 1);
         using var titleFont = new Font("Segoe UI", 9.5F, FontStyle.Bold, GraphicsUnit.Point);
         using var textFont = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
         using var brush = new SolidBrush(HudColor);
+        using var hintBrush = new SolidBrush(Color.FromArgb(232, 168, 215, 228));
         using var hpBackBrush = new SolidBrush(Color.FromArgb(115, 34, 45, 52));
         using var hpFillBrush = new SolidBrush(GetHpColor(gameWorld.Player.CurrentHealth, Player.MaxHealth));
 
@@ -352,6 +353,13 @@ public sealed class GameRenderer
         graphics.DrawString("E - \u0432\u0437\u0430\u0438\u043C\u043E\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435", textFont, brush, left, y);
         y += 13;
         graphics.DrawString("Esc - \u043F\u0430\u0443\u0437\u0430", textFont, brush, left, y);
+
+        var hint = gameWorld.InteractionHint;
+        if (!string.IsNullOrWhiteSpace(hint))
+        {
+            y += 16;
+            graphics.DrawString(hint, textFont, hintBrush, left, y);
+        }
     }
 
     private static void DrawNotes(Graphics graphics, IReadOnlyList<StoryNote> notes)
@@ -422,15 +430,17 @@ public sealed class GameRenderer
         }
 
         var width = Math.Min(760, roomWidth - 40);
-        var bounds = new Rectangle((roomWidth - width) / 2, 18, width, 44);
+        var bounds = new Rectangle((roomWidth - width) / 2, 18, width, 56);
         using var panelBrush = new SolidBrush(Color.FromArgb(160, 8, 12, 16));
         using var panelBorder = new Pen(Color.FromArgb(170, 160, 189, 206), 1);
-        using var textFont = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        using var textFont = new Font("Segoe UI", 8.8F, FontStyle.Regular, GraphicsUnit.Point);
         using var textBrush = new SolidBrush(Color.FromArgb(232, 237, 242));
         using var format = new StringFormat
         {
             Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisWord,
+            FormatFlags = StringFormatFlags.LineLimit
         };
 
         graphics.FillRectangle(panelBrush, bounds);
