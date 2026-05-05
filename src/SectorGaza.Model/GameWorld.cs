@@ -16,6 +16,7 @@ public sealed class GameWorld
     private int currentRoomIndex;
     private int transitionCooldown;
     private int storyMessageTicks;
+    private int playTicks;
     private string? activeStoryMessage;
 
     private const int StoryMessageDurationTicks = 320;
@@ -53,7 +54,11 @@ public sealed class GameWorld
 
     public string? ActiveStoryMessage => storyMessageTicks > 0 ? activeStoryMessage : null;
 
-    public string? InteractionHint => GetInteractionHint(CurrentLevelRoom);
+    public string? InteractionHint => CreateInteractionHint(CurrentLevelRoom);
+
+    public int DefeatedEnemies => TotalEnemies - AliveEnemies;
+
+    public TimeSpan ElapsedTime => TimeSpan.FromSeconds(playTicks / 60.0);
 
     public int TotalEnemies
     {
@@ -179,6 +184,8 @@ public sealed class GameWorld
             return;
         }
 
+        playTicks++;
+
         var room = CurrentLevelRoom;
         var axes = inputState.GetMovementAxes();
         Player.UpdateMovement(axes.Horizontal, axes.Vertical, room.Room);
@@ -261,7 +268,59 @@ public sealed class GameWorld
         }
     }
 
-    private string? GetInteractionHint(LevelRoom room)
+    private string? CreateInteractionHint(LevelRoom room)
+    {
+        if (IsGameOver || IsVictory)
+        {
+            return null;
+        }
+
+        foreach (var note in room.Notes)
+        {
+            if (!note.IsCollected && note.Bounds.IntersectsWith(Player.Bounds))
+            {
+                return "E - \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u043A\u0443";
+            }
+        }
+
+        if (room.KeyCard is not null
+            && !room.KeyCard.IsCollected
+            && room.KeyCard.Bounds.IntersectsWith(Player.Bounds))
+        {
+            return "E - \u043F\u043E\u0434\u043E\u0431\u0440\u0430\u0442\u044C \u043A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0443";
+        }
+
+        if (room.FinalDoor is not null && room.FinalDoor.Bounds.IntersectsWith(Player.Bounds))
+        {
+            if (!HasKeyCard)
+            {
+                return "\u041D\u0443\u0436\u043D\u0430 \u043A\u043B\u044E\u0447-\u043A\u0430\u0440\u0442\u0430";
+            }
+
+            if (!IsCurrentRoomCleared)
+            {
+                return "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u0447\u0438\u0441\u0442\u0438\u0442\u0435 \u043A\u043E\u043C\u043D\u0430\u0442\u0443";
+            }
+
+            return "E - \u0430\u043A\u0442\u0438\u0432\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0448\u043B\u044E\u0437";
+        }
+
+        foreach (var medkit in room.Medkits)
+        {
+            if (medkit.IsCollected || !medkit.Bounds.IntersectsWith(Player.Bounds))
+            {
+                continue;
+            }
+
+            return Player.CurrentHealth >= Player.MaxHealth
+                ? "\u0410\u043F\u0442\u0435\u0447\u043A\u0430 \u043D\u0435 \u043D\u0443\u0436\u043D\u0430 (HP \u043F\u043E\u043B\u043D\u043E\u0435)"
+                : "E - \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0430\u043F\u0442\u0435\u0447\u043A\u0443";
+        }
+
+        return null;
+    }
+
+    private string? GetInteractionHintLegacy(LevelRoom room)
     {
         if (IsGameOver || IsVictory)
         {
@@ -468,7 +527,8 @@ public sealed class GameWorld
                 new(new IntRectangle(1310, 740, 30, 30), EnemyKind.Normal),
                 new(new IntRectangle(1420, 840, 30, 30), EnemyKind.Fast),
                 new(new IntRectangle(610, 840, 30, 30), EnemyKind.Normal),
-                new(new IntRectangle(1490, 320, 30, 30), EnemyKind.Fast)
+                new(new IntRectangle(1490, 320, 30, 30), EnemyKind.Fast),
+                new(new IntRectangle(1350, 520, 44, 44), EnemyKind.Boss)
             },
             new List<Medkit>
             {

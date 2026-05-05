@@ -39,6 +39,7 @@ public sealed class GameRenderer
         DrawWallShadows(graphics, room.Walls);
         DrawWalls(graphics, room.Walls);
         DrawTransitions(graphics, gameWorld.Transitions);
+        DrawInteractionHighlights(graphics, gameWorld);
         DrawMedkits(graphics, gameWorld.Medkits);
         DrawNotes(graphics, gameWorld.Notes);
         DrawKeyCard(graphics, gameWorld.KeyCard);
@@ -242,12 +243,28 @@ public sealed class GameRenderer
 
         graphics.TranslateTransform(centerX, centerY);
         graphics.RotateTransform((float)enemy.FacingAngleDegrees);
-        graphics.DrawImage(enemySprite, new Rectangle(-18, -18, 36, 36), 0, 0, enemySprite.Width, enemySprite.Height, GraphicsUnit.Pixel);
+        var spriteSize = enemy.Kind == EnemyKind.Boss ? 48 : 36;
+        var halfSize = spriteSize / 2;
+        graphics.DrawImage(
+            enemySprite,
+            new Rectangle(-halfSize, -halfSize, spriteSize, spriteSize),
+            0,
+            0,
+            enemySprite.Width,
+            enemySprite.Height,
+            GraphicsUnit.Pixel);
 
         if (enemy.Kind == EnemyKind.Fast)
         {
             using var fastEnemyAura = new Pen(Color.FromArgb(170, 112, 208, 238), 2);
             graphics.DrawEllipse(fastEnemyAura, -21, -21, 42, 42);
+        }
+        else if (enemy.Kind == EnemyKind.Boss)
+        {
+            using var bossAuraOuter = new Pen(Color.FromArgb(195, 224, 96, 96), 3);
+            using var bossAuraInner = new Pen(Color.FromArgb(170, 234, 152, 86), 2);
+            graphics.DrawEllipse(bossAuraOuter, -30, -30, 60, 60);
+            graphics.DrawEllipse(bossAuraInner, -24, -24, 48, 48);
         }
 
         graphics.Restore(state);
@@ -462,6 +479,50 @@ public sealed class GameRenderer
         }
     }
 
+    private static void DrawInteractionHighlights(Graphics graphics, GameWorld gameWorld)
+    {
+        const int interactionMargin = 20;
+        var playerBounds = gameWorld.Player.Bounds;
+
+        using var notePen = new Pen(Color.FromArgb(215, 240, 219, 161), 2);
+        using var medkitPen = new Pen(Color.FromArgb(205, 230, 102, 102), 2);
+        using var keyCardPen = new Pen(Color.FromArgb(218, 240, 214, 103), 2);
+        using var doorPen = new Pen(Color.FromArgb(214, 170, 226, 246), 2);
+
+        foreach (var note in gameWorld.Notes)
+        {
+            if (note.IsCollected || !IsNearInteractionTarget(playerBounds, note.Bounds, interactionMargin))
+            {
+                continue;
+            }
+
+            DrawHighlightRectangle(graphics, note.Bounds, notePen, 4);
+        }
+
+        foreach (var medkit in gameWorld.Medkits)
+        {
+            if (medkit.IsCollected || !IsNearInteractionTarget(playerBounds, medkit.Bounds, interactionMargin))
+            {
+                continue;
+            }
+
+            DrawHighlightRectangle(graphics, medkit.Bounds, medkitPen, 4);
+        }
+
+        if (gameWorld.KeyCard is not null
+            && !gameWorld.KeyCard.IsCollected
+            && IsNearInteractionTarget(playerBounds, gameWorld.KeyCard.Bounds, interactionMargin))
+        {
+            DrawHighlightRectangle(graphics, gameWorld.KeyCard.Bounds, keyCardPen, 4);
+        }
+
+        if (gameWorld.FinalDoor is not null
+            && IsNearInteractionTarget(playerBounds, gameWorld.FinalDoor.Bounds, interactionMargin))
+        {
+            DrawHighlightRectangle(graphics, gameWorld.FinalDoor.Bounds, doorPen, 5);
+        }
+    }
+
     private static void DrawMedkits(Graphics graphics, IReadOnlyList<Medkit> medkits)
     {
         using var bodyBrush = new SolidBrush(Color.FromArgb(218, 176, 48, 48));
@@ -485,6 +546,26 @@ public sealed class GameRenderer
             graphics.FillRectangle(crossBrush, centerX - 2, rect.Y + 4, 4, rect.Height - 8);
             graphics.FillRectangle(crossBrush, rect.X + 4, centerY - 2, rect.Width - 8, 4);
         }
+    }
+
+    private static void DrawHighlightRectangle(Graphics graphics, IntRectangle bounds, Pen pen, int padding)
+    {
+        var rect = new Rectangle(
+            bounds.X - padding,
+            bounds.Y - padding,
+            bounds.Width + (padding * 2),
+            bounds.Height + (padding * 2));
+        graphics.DrawRectangle(pen, rect);
+    }
+
+    private static bool IsNearInteractionTarget(IntRectangle playerBounds, IntRectangle targetBounds, int margin)
+    {
+        var expandedTarget = new IntRectangle(
+            targetBounds.X - margin,
+            targetBounds.Y - margin,
+            targetBounds.Width + (margin * 2),
+            targetBounds.Height + (margin * 2));
+        return playerBounds.IntersectsWith(expandedTarget);
     }
 
     private static void DrawSoftSpot(Graphics graphics, Point center, int radius, Color color)

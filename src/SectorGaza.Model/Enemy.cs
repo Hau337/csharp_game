@@ -8,6 +8,9 @@ public sealed class Enemy
     public const int FastSpeed = 4;
     public const int FastMaxHealth = 55;
     public const int FastContactDamage = 7;
+    public const int BossSpeed = 2;
+    public const int BossMaxHealth = 220;
+    public const int BossContactDamage = 16;
     private const double AggroRange = 520;
     private const int PathCellSize = 48;
     private const int PathRebuildIntervalTicks = 16;
@@ -29,6 +32,14 @@ public sealed class Enemy
             speed = FastSpeed;
             ContactDamage = FastContactDamage;
             CurrentHealth = FastMaxHealth;
+            return;
+        }
+
+        if (kind == EnemyKind.Boss)
+        {
+            speed = BossSpeed;
+            ContactDamage = BossContactDamage;
+            CurrentHealth = BossMaxHealth;
             return;
         }
 

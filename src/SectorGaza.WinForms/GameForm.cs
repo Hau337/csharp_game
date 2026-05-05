@@ -4,6 +4,7 @@ public sealed class GameForm : Form
 {
     private const int ButtonSpacing = 14;
     private const int TitleGap = 30;
+    private const int VictoryStatsGap = 12;
 
     private enum ScreenState
     {
@@ -22,6 +23,7 @@ public sealed class GameForm : Form
     private readonly Button restartButton;
     private readonly Button exitButton;
     private readonly Label titleLabel;
+    private readonly Label victoryStatsLabel;
 
     private ScreenState state = ScreenState.Menu;
 
@@ -68,7 +70,19 @@ public sealed class GameForm : Form
             new Point(0, 0),
             ExitGame);
 
+        victoryStatsLabel = new Label
+        {
+            AutoSize = false,
+            Size = new Size(420, 90),
+            TextAlign = ContentAlignment.TopCenter,
+            Font = new Font("Segoe UI", 11F, FontStyle.Regular, GraphicsUnit.Point),
+            ForeColor = Color.FromArgb(224, 236, 245),
+            BackColor = Color.Transparent,
+            Visible = false
+        };
+
         Controls.Add(titleLabel);
+        Controls.Add(victoryStatsLabel);
         Controls.Add(startButton);
         Controls.Add(continueButton);
         Controls.Add(restartButton);
@@ -217,6 +231,7 @@ public sealed class GameForm : Form
     private void ConfigureScreenState()
     {
         titleLabel.Visible = state != ScreenState.Playing;
+        victoryStatsLabel.Visible = state == ScreenState.Victory;
         startButton.Visible = state == ScreenState.Menu;
         continueButton.Visible = state == ScreenState.Paused;
         restartButton.Visible = state == ScreenState.Paused || state == ScreenState.GameOver || state == ScreenState.Victory;
@@ -231,7 +246,24 @@ public sealed class GameForm : Form
             _ => "\u0421\u0435\u043A\u0442\u043E\u0440 \u0433\u0430\u0437\u0430"
         };
 
+        UpdateVictoryStatsText();
         CenterMenuControls();
+    }
+
+    private void UpdateVictoryStatsText()
+    {
+        if (state != ScreenState.Victory)
+        {
+            victoryStatsLabel.Text = string.Empty;
+            return;
+        }
+
+        var world = controller.GameWorld;
+        var elapsed = world.ElapsedTime;
+        victoryStatsLabel.Text =
+            $"\u0412\u0440\u0435\u043C\u044F: {elapsed:mm\\:ss}\n" +
+            $"\u0423\u043D\u0438\u0447\u0442\u043E\u0436\u0435\u043D\u043E \u0432\u0440\u0430\u0433\u043E\u0432: {world.DefeatedEnemies}/{world.TotalEnemies}\n" +
+            $"\u041D\u0430\u0439\u0434\u0435\u043D\u043E \u0437\u0430\u043F\u0438\u0441\u043E\u043A: {world.CollectedNotesCount}/{world.TotalNotes}";
     }
 
     private void CenterMenuControls()
@@ -266,11 +298,19 @@ public sealed class GameForm : Form
         var buttonsHeight = visibleButtons.Count == 0
             ? 0
             : (visibleButtons.Count * startButton.Height) + ((visibleButtons.Count - 1) * ButtonSpacing);
-        var menuGroupHeight = titleLabel.Height + TitleGap + buttonsHeight;
+        var statsHeight = victoryStatsLabel.Visible ? VictoryStatsGap + victoryStatsLabel.Height : 0;
+        var menuGroupHeight = titleLabel.Height + statsHeight + TitleGap + buttonsHeight;
         var menuGroupTop = Math.Max(24, (ClientSize.Height - menuGroupHeight) / 2);
 
         titleLabel.Location = new Point(centerX - (titleLabel.Width / 2), menuGroupTop);
-        var firstY = titleLabel.Bottom + TitleGap;
+        var blockBottom = titleLabel.Bottom;
+        if (victoryStatsLabel.Visible)
+        {
+            victoryStatsLabel.Location = new Point(centerX - (victoryStatsLabel.Width / 2), blockBottom + VictoryStatsGap);
+            blockBottom = victoryStatsLabel.Bottom;
+        }
+
+        var firstY = blockBottom + TitleGap;
 
         for (var index = 0; index < visibleButtons.Count; index++)
         {
